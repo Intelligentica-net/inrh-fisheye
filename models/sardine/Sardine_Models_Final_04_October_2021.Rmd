@@ -1,0 +1,258 @@
+---
+title: "Sardine_Models_Final_04_October_2021"
+author: "Abdelouahed Ben Mhamed"
+date: "10/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE, 
+                      warning = FALSE, message = FALSE,
+                      dpi = 180, fig.width = 16, fig.height = 10)
+```
+
+# Load packages
+
+```{r}
+library(janitor)
+# data prep
+library(dplyr)
+# tidymodels
+library(rsample)
+library(recipes)
+library(parsnip)
+library(tune)
+library(dials)
+library(workflows)
+library(yardstick)
+library(readr)
+library(lubridate)
+
+```
+
+# Read the data
+
+## Features
+```{r}
+selected_features <- read.table(file = "./sardine_features_selected_50F_PowerTrans_rsq73_rmse0.21_before_recipe.txt",header = F,sep = "\n")
+```
+
+## Monthly catch
+```{r}
+tot_catch_per_month_all_zone <- read_csv("../data/maia_monthly_sardine_catch_t.csv") %>% 
+  clean_names() %>%
+  mutate(lag_monthly_catch_t = monthly_catch_t) %>% 
+  select(-monthly_catch_t)
+```
+
+## Join data
+```{r}
+sard_weekly <- readr::read_csv("../data/data_2015_2021_sardina_pilchardius_weekly_10nm.csv") %>%
+  clean_names() %>%
+  filter(weight_t > 0) %>%
+  select(all_of(selected_features$V1)) %>%
+  mutate(lag_date = case_when(month(date,label = F)==1 ~ date - 31,
+                              month(date,label = F)==2 & leap_year(year(date)) ~ date - 29,
+                              month(date,label = F)==2 & !leap_year(year(date)) ~ date - 28,
+                              month(date,label = F)==3 ~ date - 31,
+                              month(date,label = F)==4 ~ date - 30,
+                              month(date,label = F)==5 ~ date - 31,
+                              month(date,label = F)==6 ~ date - 30,
+                              month(date,label = F)==7 ~ date - 31,
+                              month(date,label = F)==8 ~ date - 31,
+                              month(date,label = F)==9 ~ date - 30,
+                              month(date,label = F)==10 ~ date - 31,
+                              month(date,label = F)==11 ~ date - 30,
+                              TRUE ~ date - 31,
+                              )) %>%
+  mutate(year = year(date),month = month(date,label = F)) %>% 
+  mutate(key =  paste(year(lag_date),month(lag_date,label = F),sep = "_")) %>%
+  relocate(key,date,year,month,weight_t,lat,lon,depth) %>%
+  mutate(weight_t = weight_t^0.125)
+
+sard_weekly_with_lag <- sard_weekly %>%
+  filter(date > date("2015-02-01")) %>%
+  left_join(tot_catch_per_month_all_zone,by = "key") %>%
+  mutate(lag_monthly_catch_t = replace(lag_monthly_catch_t, is.na(lag_monthly_catch_t),0)) %>%
+  relocate(lag_monthly_catch_t, .after = weight_t) %>%
+  select(-key,-year,-lag_date) %>%
+  mutate(month = month(date,label = T))
+
+rm(selected_features)
+```
+
+# Splitting the Data
+```{r}
+# split into training and testing datasets. Stratify by Sale price 
+sard_split <- rsample::initial_split(
+  sard_weekly_with_lag, 
+  prop = 0.8, 
+  strata = weight_t
+)
+
+sard_train <- training(sard_split)
+sard_test <- testing(sard_split)
+
+rm(sard_weekly)
+rm(sard_weekly_with_lag)
+rm(tot_catch_per_month_all_zone)
+```
+
+# Calculating the O2_mean for imputation
+
+```{r}
+o2_mean <- sard_train %>%
+  select(names(sard_train)[grepl(pattern = "o2_mean",x = names(sard_train))])
+
+maxP1_o2_mean_leftskew <- apply(o2_mean, 2,max,na.rm=TRUE) +1
+saveRDS(maxP1_o2_mean_leftskew,file = "sard_regression_maxP1_o2_new_04Sept2021_40F.rds")
+```
+
+# Transforming O2_mean using custom methods
+
+```{r}
+# Calculating the max of each variable
+f <- function(x,maxp1i){1/(maxp1i - x)}
+sard_regression_maxP1_o2 <- readRDS(file = "sard_regression_maxP1_o2_new_04Sept2021_40F.rds")
+
+sard_train <- sard_train %>%
+  mutate(o2_mean24 = f(o2_mean24,sard_regression_maxP1_o2[1])) %>%
+  mutate(o2_mean33 = f(o2_mean33,sard_regression_maxP1_o2[2])) %>%
+  mutate(o2_mean36 = f(o2_mean36,sard_regression_maxP1_o2[3])) %>%
+  mutate(o2_mean48 = f(o2_mean48,sard_regression_maxP1_o2[4]))
+
+sard_test <- sard_test %>%
+  mutate(o2_mean24 = f(o2_mean24,sard_regression_maxP1_o2[1])) %>%
+  mutate(o2_mean33 = f(o2_mean33,sard_regression_maxP1_o2[2])) %>%
+  mutate(o2_mean36 = f(o2_mean36,sard_regression_maxP1_o2[3])) %>%
+  mutate(o2_mean48 = f(o2_mean48,sard_regression_maxP1_o2[4]))
+```
+
+# Preprocessing
+```{r}
+# preprocessing "recipe"
+sard_rec <- recipe(weight_t ~ ., data = sard_train) %>% 
+  step_mutate(datum = as.numeric(date)) %>%
+  update_role(date,month,new_role = "ID") %>%
+  step_knnimpute(all_predictors()) %>%
+  step_inverse(depth) %>%
+  step_YeoJohnson(sst9,sst15,sst42,sst48) %>%
+  step_log(o2_std42) %>%
+  step_sqrt(pp_mean3,pp_mean6,pp_mean9) %>%
+  step_sqrt(pp_std27) %>%
+  step_inverse(temp_mean6,temp_mean39) %>%
+  step_log(temp_std27) %>%
+  step_log(u_std15,u_std27) %>%
+  step_log(pres_std9,pres_std30) %>%
+  step_sqrt(meteo_u_std27) %>%
+  step_sqrt(meteo_v_std33) %>%
+  step_ns(lat, lon, deg_free = 3) %>%
+  step_rm(lat_ns_2,lat_ns_3,lon_ns_1,lon_ns_2)
+
+sard_train_prep <- sard_rec %>% prep() %>% bake(new_data = NULL)
+sard_test_prep <- sard_rec %>% prep() %>% bake(new_data = sard_test)
+```
+
+# Model specification
+```{r}
+# XGBoost model specification
+
+sard_spec <- boost_tree(
+  trees = tune(),
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),sample_size = tune(), mtry = tune(),  
+  learn_rate = tune(),
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+```
+
+# Grid specification
+```{r}
+# grid specification
+sard_grid <- grid_max_entropy(
+  trees(),
+  tree_depth(),min_n(),loss_reduction(),
+  sample_size = sample_prop(),finalize(mtry(), sard_train),
+  learn_rate(),
+  size = 200
+)
+```
+
+# Define the Workflow
+```{r}
+sard_wf <- workflow() %>%
+  add_recipe(sard_rec) %>%
+  add_model(sard_spec)
+```
+
+# Splitting the folds
+```{r}
+set.seed(234)
+sard_folds <- vfold_cv(sard_train,strata = weight_t,v = 5)
+```
+
+# Tune the model
+
+```{r}
+set.seed(34567)
+all_cores <- parallel::detectCores(logical = FALSE) 
+library(doParallel)
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+
+sard_tune <- tune_grid(
+  sard_wf,
+  resamples = sard_folds,
+  metrics = metric_set(rmse, rsq, mae),
+  grid = sard_grid,
+  control = control_grid(save_pred = TRUE,save_workflow = TRUE)
+)
+
+stopCluster(cl)
+rm(cl)
+
+save.image("all_objects_sardine_powerTrans.RData")
+```
+
+```{r}
+sard_tune %>% show_best(metric = "rsq")
+```
+
+## Select best parameters and finalize workflow
+```{r}
+best_params <- sard_tune %>% select_best(metric = "rmse")
+xgb_workflow_finalized <- sard_wf %>% finalize_workflow(parameters = best_params)
+```
+
+## fit on all train_data and test on test_data
+
+```{r}
+sard_lastfit <- xgb_workflow_finalized %>% last_fit(sard_split)
+```
+## Check validation scores
+```{r}
+test_performance <- sard_lastfit %>% collect_metrics()
+test_performance
+```
+
+# Fitting final Model
+```{r}
+i <- sample(x = 1:2234,size = 1)
+df <- sard_train %>% bind_rows(sard_test[-i,])
+final_model <- fit(xgb_workflow_finalized, df)
+```
+
+# Test if the model works
+```{r}
+new_data  = sard_test[i,]
+predict(final_model,new_data = new_data)
+```
+
+# Save the best model
+```{r}
+saveRDS(object = final_model,file = "sardine_final_best_model_workflow.rds")
+```
+

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0px;
+      background-color: transparent;
+    }
+    .header_doc p {
+      text-align: center;
+      text-justify: inter-word;
+    }
+    .header_doc {
+      padding: 30px;
+      text-align: center;
+      column-span: all;
+      background-color: transparent;
+    }
+    .paragraph {
+      padding:20px;
+      text-align: justify;
+      text-justify: inter-word;
+      line-height: 2em;
+    }
+    .mylist ul{
+      padding:20px;
+      text-align: justify;
+      text-justify: inter-word;
+      line-height: 2em;
+    }
+    .column1 {
+      float: left;
+      width: 50%;
+      padding: 10px;
+      height: 100%;
+      background-color: transparent;
+    }
+
+    .column2 {
+      float: left;
+      width: 50%;
+      padding: 10px;
+      height: 100%;
+      background-color: transparent;
+    }
+    .huge{
+      font-size: 25px;
+      font-weight:900;
+    }
+
+    .column_split {
+      float: left;
+      width: 33.33%;
+      padding: 5px;
+    }
+
+    /* Clear floats after image containers */
+    .row::after {
+      content: "";
+      clear: both;
+      display: table;
+    }
+  </style>
+
+  <body>
+    <div class="header_doc">
+      <h3>Manuel d'Utilisation de FishEye</h3>
+      <h6>Fisheye - version 1.0.5</h6>
+    </div>
+    <div class="row">
+      <p class="paragraph">
+        <strong>FishEye</strong> est une Application Web developpée à l'aide du langage de programmation <strong>R</strong> et la librairie <strong>Shiny</strong>. 
+        Dans cette version de FishEye nous présentons trois volets de l'application. La première application concerne la pêcherie des petits pélagique dans 
+        l'Atlantique sud du Maroc.</p>
+      </p>
+      <div class="column1">
+        <img src="guide/connetion.png" style="width:100%">
+      </div>
+      <div class="column2">
+        <div class="huge">1. Se Connecter</div>
+        <p class="paragraph">
+          La première étape consiste à se connecter. Vous entrez votre email et le mot de passe associé pour accéder à tous les services de l'application. 
+          Il est necessaire de rappeler qu'actuellement, l'accés à l'application est restreint aux personnes invitées par l'administrateur. 
+          Une fois invité vous recevez un email qui vous permet de créer un mot de passe pour votre compte. Cette interface vous permet aussi de 
+          réinitialiser votre mot de passe en clickant sur <strong>Forgot your password?</strong></div>
+        </p>
+    </div>
+
+    <div class="row">
+      <div class="column1">
+        <div class="huge">2. Navigation</div>
+        <p class="paragraph">
+            Après connexion, vous arrivez à la page d'accueil où en trouve trois menu. Le premier menu à gauche <strong>(A)</strong> vous permet de naviguer entre les pages 
+            de l'application. L'application contient sept pages: 
+            <ul class="mylist">
+              <li><strong>ACCUEIL</strong> : la page d'accueil de l'application</li>
+              <li><strong>PÊCHERIE PÉLAGIQUE SUD</strong> : pour faire la simulation de l'effort de pêche et la prédiction des CPUEs et des captures en petits pélagiques de 
+                la flotte des RSW dans l'Atlantique sud du Maroc.
+              </li>
+              <li><strong>PÊCHERIE CÉPHALOPODIÈRE</strong> : pour prédire les CPUEs de la flotte hauturière exploitant les espèces céphalopodières dans l'Atlantique sud
+                du Maroc
+              </li>
+              <li><strong>INTERACTIONS</strong> : pour prédire la probabilité qu'une attaque de grand dauphin (Negro) aura lieu.</li>
+              <li><strong>OCÉANOGRAPHIE</strong> : pour visualiser la distribution des indicateurs environnementals et océaniques.</li>
+              <li><strong>DOCUMENTATION</strong> : présentation de l'application et la manière de l'utiliser.</li>
+              <li><strong>AIDE</strong> : contact pour réclamer une erreur ou demande de l'aide.</li>
+            </ul>
+          </p>
+          <p class="paragraph">
+            Le deuxième menu en haut <strong>(B)</strong> contient trois boutton <img src="guide/menu_quit.png" alt=""> pour se déconnecter de l'application, 
+            <img src="guide/menu_mode.png" alt=""> pour changer le mode de l'application entre <strong>Dark</strong> et <strong>Light</strong> mode et 
+            <img src="guide/menu_control.png" alt=""> qui permet d'afficher le troisième menu <strong>(C)</strong> qui diffère d'une page à l'autre. 
+            Le menu <strong>(C)</strong> est vide pour les pages d'Accueil, de Documentation et d'Aide.
+          </p>
+        </div>
+        <div class="column2">
+          <img src="guide/accueil.png" style="width:100%">
+          <br/>
+          <br/> 
+          <div class="row">
+            <div class="column_split">
+              <figure>
+                <img src="guide/menu_gauche.png" style="width:70%">   
+                <figcaption>(A)</figcaption>
+            </figure>
+            </div>
+            <div class="column_split">
+              <figure>
+                <img src="guide/menu_top.png" style="width:70%">   
+                <figcaption>(B)</figcaption>
+            </figure>
+            </div>
+            <div class="column_split">
+              <figure>
+                <img src="guide/menu_droite.png" style="width:70%">   
+                <figcaption>(C)</figcaption>
+            </figure>
+            </div>
+          </div> 
+        </div>
+    </div>
+    <div class="row">
+        <div class="column1">
+          <img src="guide/pecherie_pelagique.png" style="width:100%">
+        </div>
+        <div class="column2">
+          <div class="huge">3. Pêcherie Pélagique Sud - CPUE</div>
+          <p class="paragraph">
+            Dans le menu de navigation à droite, choisissez la page <strong>PÊCHERIE PÉLAGIQUE SUD</strong>. Pour afficher le menu de control, cliquer
+            sur le boutton <img src="guide/menu_control.png">. Ce menu de control vous permet de choisir le type de prédiction CPUE ou Production. 
+            Dans le cas de prédiction des CPUEs, vous entrez l'année et les mois de simulation dans la fenêtre <strong>SIMULATION DE L'EFFORT DE PÊCHE</strong>. 
+            Il faut rappeler que le modèle permet de prédire trois mois dans le future à partir de la date la plus récente des indicateurs océaniques utilisés 
+            dans le modèle. La troisème fenêtre <strong>PRÉDICTION DE LA PÊCHE</strong> contient des cases à cocher pour selectionner les espèces objet de la 
+            prédiction. Par défaut les trois espèces, Sardine, Maquereau et Chinchard sont selectionnées. Les entrées numériques permettent d'inroduire les captures
+            totales du mois qui précède les mois de simulation pour les espèces objet de la prédiction. Le boutton <strong>Prédiction</strong> permet de lancer la 
+            prédiction.
+          </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="column1">
+          <div class="huge">4. Pêcherie Pélagique Sud - PRODUCTION</div>
+          <p class="paragraph">
+            Pour prédire la production, nous passons par deux étapes. La première consiste à simuler l'effort de pêche et la deuxième de prédire les captures 
+            à partir de l'effort de pêche simulé. La simulation de l'effort de pêche peut être réaliser suivant différents scenario basé sur les probabilités de 
+            visiter une zone de pêche (carré de 10nm²) suivant trois paramètres: L'environement, la distance du port de Dakhla et l'historique des zones de 
+            pêche. La fenêtre <strong>(A)</strong> permet de spécifier le poid de chacune des trois probabilités. La probabilité liée à l'environement est 
+            calculée en se basant sur les CPUEs de l'espèce cible. Nous commeçons par choisir le poids de l'environement, ensuite l'application va assigner 
+            le reste du 100% du poids à la distance. Une fois le poids de la distance est selectionné le reste va être affecter à l'historique. Il est necessaire 
+            de rappeler que l'historique de l'effort de pêche est concentré dans la zone nord de Dakhla ce qui rend ces probabilités plus élevées par rapport 
+            à la probabilité de l'environement et la distance. Donc il est conseillé de donner un poids minime et quasiment nulle à l'historique si nous cherchons 
+            à quantifier l'effet des autres probabilités.
+            La fenêtre <strong>(B)</strong> permet de spécifier l'année et les mois de simulation. La troisième entrée est l'année de référence pour faire la simulation. 
+            Cette année de référence permet de suivre la distribution des navires actifs et le nombre de marées effectuées pendans les mêmes mois de cette année. La quatrième entrée 
+            est l'espèce cible. Ce radio boutton permet de spécifier lequel des CPUEs des espèces il faut utiliser pour calculer les probabilités de l'environement. Une 
+            fois toutes ces informations sont remplis, il suffit de cliquer sur le boutton <strong>Simulation</strong> pour lancer la simulation de l'effort de pêche.
+            Après simulation de l'effort, la fenêtre <strong>PRÉDICTION DE LA PÊCHE</strong> permet de prédire la production. Les cases à cocher permettent de selectionner 
+            les espèces objet de la prédictions. Les entrées numériques permettent d'introduire les captures effectuées pendant le mois qui précède les mois de prédiction. 
+          </p>
+        </div>
+        <div class="column2">
+          <img src="guide/sim_effort_peche_capture.png" style="width:100%">
+          <br/>
+          <br/> 
+          <div class="row">
+            <div class="column_split">
+              <figure>
+                <img src="guide/scenario_effort_peche.png" style="width:95%">   
+                <figcaption>(A)</figcaption>
+            </figure>
+            </div>
+            <div class="column_split">
+              <figure>
+                <img src="guide/simulation_effort.png" style="width:95%">   
+                <figcaption>(B)</figcaption>
+            </figure>
+            </div>
+            <div class="column_split">
+              <figure>
+                <img src="guide/prediction_captures.png" style="width:95%">   
+                <figcaption>(C)</figcaption>
+            </figure>
+            </div>
+          </div> 
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="column1">
+          <img src="guide/pecherie_cephalopodiere.png" style="width: 100%;">
+        </div>
+        <div class="column2">
+          <div class="huge">5. PÊCHERIE CÉPHALOPODIÈRE</div>
+          <p class="paragraph">
+            Le modèle de la pêcherie céphalopodière permet de prédire l'évolution des CPUEs de la flotte hauturière exploitant les céphalopodes dans 
+            l'Atlantique sud du Maroc. Les trois espèces principales sont le Calmar, la Seiche et le Poulpe. Les cases à cocher permettent de choisir 
+            les espèces d'interêt. Par defaut les trois espèces sont selectionnées. La fenêtre <strong>SAISON DE PÊCHE</strong> permet de spécifier la longueur 
+            de la saison de pêche en semaine. Le modèle prend en paramère le CPUE de la semaine précédente du début de la saison de pêche. Ce début de la saison 
+            de pêche peut coincider avec  le vrai début qui suit la campagne scientifique de l'INRH ou bien un début qui se situe au milieu de la saison de pêche.
+            Dans le premier cas le CPUE qui précède le début et celui de la campagne scientifique, dans le deuxième cas le CPUE est la moyenne des CPUE déclarés par 
+            la flotte hauturière. Le radio boutton <strong>Source de pêche</strong> permet de spécifier la correction à faire pour normaliser les valeurs entrées comme 
+            CPUE (t-1).
+          </p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="column1">
+          <h1 class="huge">6. INTERACTIONS</h1>
+          Dans cette page des <strong>INTERACTIONS</strong> nous cherchons à prédire la probabilité d'occurrence d'une attaque du negro dans l'espace et le temps. 
+          Pour ce faire il suffit de spécifier la période de prédiction. Nous pouvons prédire les attaques d'une semaine dans le future.
+        </div>
+        <div class="column2">
+          <img src="guide/interactions.png" style="width: 100%;">
+        </div>
+    </div>
+
+    <div class="row">
+      <div class="column1">
+        <img src="guide/oceanographie.png" style="width: 100%;">
+      </div>
+      <div class="column2">
+        <div class="huge">7. OCÉANOGRAPHIE</div>
+        <p class="paragraph">
+          Cette fenêtre permet visualiser et calculer les statistiques descriptives des indicateurs oceanographiques.
+        </p>
+      </div>
+  </div>
+  </div>
+  </body>  
+  <script>
+    
+  </script>
+</html>

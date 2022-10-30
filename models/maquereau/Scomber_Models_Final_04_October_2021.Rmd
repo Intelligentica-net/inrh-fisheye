@@ -1,0 +1,253 @@
+---
+title: "Sardine_Models_Final_04_October_2021"
+author: "Abdelouahed Ben Mhamed"
+date: "10/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE, 
+                      warning = FALSE, message = FALSE,
+                      dpi = 180, fig.width = 16, fig.height = 10)
+```
+
+# Load packages
+
+```{r}
+library(janitor)
+# data prep
+library(dplyr)
+# tidymodels
+library(rsample)
+library(recipes)
+library(parsnip)
+library(tune)
+library(dials)
+library(workflows)
+library(yardstick)
+library(readr)
+library(lubridate)
+
+```
+
+# Read the data
+
+## Features
+```{r}
+selected_features <- read.table(file = "./maquereau_features_selected_50F_PowerTrans_rsq75_rmse0.13_before_preped.txt",header = F,sep = "\n")
+```
+
+## Monthly catch
+```{r}
+tot_catch_per_month_all_zone <- read_csv("../data/maia_monthly_scomber_colias_catch_t.csv") %>% 
+  clean_names() %>%
+  mutate(lag_monthly_catch_t = monthly_catch_t) %>% 
+  select(-monthly_catch_t)
+```
+
+## Join data
+```{r}
+maqr_weekly <- readr::read_csv("../data/data_2015_2021_Scomber_colias_weekly_10nm.csv") %>%
+  clean_names() %>%
+  filter(weight_t > 0) %>%
+  select(all_of(selected_features$V1)) %>%
+  mutate(lag_date = case_when(month(date,label = F)==1 ~ date - 31,
+                              month(date,label = F)==2 & leap_year(year(date)) ~ date - 29,
+                              month(date,label = F)==2 & !leap_year(year(date)) ~ date - 28,
+                              month(date,label = F)==3 ~ date - 31,
+                              month(date,label = F)==4 ~ date - 30,
+                              month(date,label = F)==5 ~ date - 31,
+                              month(date,label = F)==6 ~ date - 30,
+                              month(date,label = F)==7 ~ date - 31,
+                              month(date,label = F)==8 ~ date - 31,
+                              month(date,label = F)==9 ~ date - 30,
+                              month(date,label = F)==10 ~ date - 31,
+                              month(date,label = F)==11 ~ date - 30,
+                              TRUE ~ date - 31,
+                              )) %>%
+  mutate(year = year(date),month = month(date,label = F)) %>% 
+  mutate(key =  paste(year(lag_date),month(lag_date,label = F),sep = "_")) %>%
+  relocate(key,date,year,month,weight_t,lat,lon,depth) %>%
+  mutate(weight_t = weight_t^0.1)
+
+maqr_weekly_with_lag <- maqr_weekly %>%
+  filter(date > date("2015-02-01")) %>%
+  left_join(tot_catch_per_month_all_zone,by = "key") %>%
+  mutate(lag_monthly_catch_t = replace(lag_monthly_catch_t, is.na(lag_monthly_catch_t),0)) %>%
+  relocate(lag_monthly_catch_t, .after = weight_t) %>%
+  select(-key,-year,-lag_date) %>%
+  mutate(month = month(date,label = T))
+
+rm(selected_features)
+```
+
+# Splitting the Data
+```{r}
+# split into training and testing datasets. Stratify by Sale price 
+maqr_split <- rsample::initial_split(
+  maqr_weekly_with_lag, 
+  prop = 0.8, 
+  strata = weight_t
+)
+
+maqr_train <- training(maqr_split)
+maqr_test <- testing(maqr_split)
+
+rm(maqr_weekly)
+rm(maqr_weekly_with_lag)
+rm(tot_catch_per_month_all_zone)
+```
+
+# Calculating the O2_mean for imputation
+
+```{r}
+o2_mean <- maqr_train %>%
+  select(names(maqr_train)[grepl(pattern = "o2_mean",x = names(maqr_train))])
+
+maxP1_o2_mean_leftskew <- apply(o2_mean, 2,max,na.rm=TRUE) +1
+saveRDS(maxP1_o2_mean_leftskew,file = "maqr_regression_maxP1_o2_new_04Sept2021_50F.rds")
+```
+
+# Transforming O2_mean using custom methods
+
+```{r}
+# Calculating the max of each variable
+f <- function(x,maxp1i){1/(maxp1i - x)}
+maqr_regression_maxP1_o2 <- readRDS(file = "maqr_regression_maxP1_o2_new_04Sept2021_50F.rds")
+
+maqr_train <- maqr_train %>%
+  mutate(o2_mean9 = f(o2_mean9,maqr_regression_maxP1_o2))
+
+maqr_test <- maqr_test %>%
+  mutate(o2_mean9 = f(o2_mean9,maqr_regression_maxP1_o2))
+```
+
+# Preprocessing
+```{r}
+# preprocessing "recipe"
+maqr_rec <- recipe(weight_t ~ ., data = maqr_train) %>% 
+  step_mutate(datum = as.numeric(date)) %>%
+  update_role(date,month,new_role = "ID") %>%
+  step_knnimpute(all_predictors()) %>%
+  step_inverse(depth) %>%
+  step_YeoJohnson(sst12) %>%
+  step_log(o2_std42) %>%
+  step_sqrt(pp_std3) %>%
+  step_inverse(temp_mean36) %>%
+  step_log(temp_std3,temp_std9) %>%
+  step_log(u_std6,u_std15,u_std33) %>%
+  step_log(v_std24,v_std42) %>%
+  step_log(pres_std18,pres_std21,pres_std30,pres_std39) %>%
+  step_sqrt(meteo_u_std21,meteo_u_std48) %>%
+  step_sqrt(meteo_v_std39) %>%
+  step_interact(~ lat:lon) %>%
+  step_ns(lat, lon, deg_free = 4)
+
+maqr_train_prep <- maqr_rec %>% prep() %>% bake(new_data = NULL)
+maqr_test_prep <- maqr_rec %>% prep() %>% bake(new_data = maqr_test)
+```
+
+# Model specification
+```{r}
+# XGBoost model specification
+
+maqr_spec <- boost_tree(
+  trees = tune(),
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),sample_size = tune(), mtry = tune(),  
+  learn_rate = tune(),
+) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+```
+
+# Grid specification
+```{r}
+# grid specification
+maqr_grid <- grid_max_entropy(
+  trees(),
+  tree_depth(),min_n(),loss_reduction(),
+  sample_size = sample_prop(),finalize(mtry(), maqr_train),
+  learn_rate(),
+  size = 200
+)
+```
+
+# Define the Workflow
+```{r}
+maqr_wf <- workflow() %>%
+  add_recipe(maqr_rec) %>%
+  add_model(maqr_spec)
+```
+
+# Splitting the folds
+```{r}
+set.seed(234)
+maqr_folds <- vfold_cv(maqr_train,strata = weight_t,v = 5)
+```
+
+# Tune the model
+
+```{r}
+set.seed(34567)
+all_cores <- parallel::detectCores(logical = FALSE) 
+library(doParallel)
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+
+maqr_tune <- tune_grid(
+  maqr_wf,
+  resamples = maqr_folds,
+  metrics = metric_set(rmse, rsq, mae),
+  grid = maqr_grid,
+  control = control_grid(save_pred = TRUE,save_workflow = TRUE)
+)
+
+stopCluster(cl)
+rm(cl)
+
+save.image("all_objects_maquereau_powerTrans.RData")
+```
+
+
+```{r}
+maqr_tune %>% show_best(metric = "rsq")
+```
+
+## Select best parameters and finalize workflow
+```{r}
+best_params <- maqr_tune %>% select_best(metric = "rmse")
+xgb_workflow_finalized <- maqr_wf %>% finalize_workflow(parameters = best_params)
+```
+
+## fit on all train_data and test on test_data
+
+```{r}
+maqr_lastfit <- xgb_workflow_finalized %>% last_fit(maqr_split)
+```
+## Check validation scores
+```{r}
+test_performance <- maqr_lastfit %>% collect_metrics()
+test_performance
+```
+
+# Fitting final Model
+```{r}
+i <- sample(x = 1:1456,size = 1)
+df <- maqr_train %>% bind_rows(maqr_test[-i,])
+final_model <- fit(xgb_workflow_finalized, df)
+```
+
+# Test if the model works
+```{r}
+new_data  = maqr_test[i,]
+predict(final_model,new_data = new_data)
+```
+
+# Save the best model
+```{r}
+saveRDS(object = final_model,file = "maquereau_final_best_model_workflow.rds")
+```
+
